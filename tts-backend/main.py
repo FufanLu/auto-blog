@@ -1,37 +1,50 @@
 # blog-auto-tts/main.py
 # ============================
 # 📌 Python 后端
-# TTS 语音合成 + 博客文章管理
+# TTS 语音合成 + 播客管理 + RSS Feed 生成
 # ============================
 
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import edge_tts
 import uuid
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
+from xml.etree.ElementTree import Element, SubElement, tostring
+from xml.dom.minidom import parseString
 
-app = FastAPI(title="BlogAuto Backend")
+app = FastAPI(title="BlogAuto Podcast Backend")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 目录设置
 AUDIO_DIR = "audio_files"
-POSTS_DIR = "posts"
+EPISODES_DIR = "episodes"
 os.makedirs(AUDIO_DIR, exist_ok=True)
-os.makedirs(POSTS_DIR, exist_ok=True)
+os.makedirs(EPISODES_DIR, exist_ok=True)
 
-# 挂载静态文件，让音频可以通过 URL 访问
 app.mount("/audio", StaticFiles(directory=AUDIO_DIR), name="audio")
+
+# ============================
+# 播客配置 - 部署后改成你的真实域名
+# ============================
+PODCAST_CONFIG = {
+    "title": "BlogAuto Podcast",
+    "description": "AI 自动生成的博客播客，输入文字自动整理、生成语音、发布节目。",
+    "author": "BlogAuto",
+    "email": "your@email.com",
+    "language": "zh-cn",
+    "image_url": "",  # 播客封面图 URL（1400x1400 以上）
+    "base_url": "http://localhost:8000",  # 部署后改成真实域名
+}
 
 
 # ============================
@@ -55,10 +68,7 @@ class TTSRequest(BaseModel):
 
 @app.get("/voices")
 async def get_voices():
-    return [
-        {"id": key, "name": key, "code": val}
-        for key, val in VOICES.items()
-    ]
+    return [{"id": k, "name": k, "code": v} for k, v in VOICES.items()]
 
 
 @app.post("/tts")
@@ -71,18 +81,14 @@ async def text_to_speech(req: TTSRequest):
 
     filename = f"{uuid.uuid4().hex}.mp3"
     filepath = os.path.join(AUDIO_DIR, filename)
-
     try:
-        communicate = edge_tts.Communicate(
-            text=req.text, voice=voice_code, rate=req.rate
-        )
+        communicate = edge_tts.Communicate(text=req.text, voice=voice_code, rate=req.rate)
         await communicate.save(filepath)
         return FileResponse(filepath, media_type="audio/mpeg", filename=f"tts_{req.voice}.mp3")
     except Exception as e:
         return {"error": f"语音合成失败: {str(e)}"}
 
 
-# 单独的 TTS 接口：生成并保存，返回文件名（给发布用）
 @app.post("/tts/save")
 async def tts_save(req: TTSRequest):
     voice_code = VOICES.get(req.voice)
@@ -91,20 +97,17 @@ async def tts_save(req: TTSRequest):
 
     filename = f"{uuid.uuid4().hex}.mp3"
     filepath = os.path.join(AUDIO_DIR, filename)
-
     try:
-        communicate = edge_tts.Communicate(
-            text=req.text, voice=voice_code, rate=req.rate
-        )
+        communicate = edge_tts.Communicate(text=req.text, voice=voice_code, rate=req.rate)
         await communicate.save(filepath)
-        return {"filename": filename, "url": f"/audio/{filename}"}
+        file_size = os.path.getsize(filepath)
+        return {"filename": filename, "url": f"/audio/{filename}", "file_size": file_size}
     except Exception as e:
         return {"error": f"语音合成失败: {str(e)}"}
 
 
 # ============================
-# 📌 博客文章管理
-# 用 JSON 文件存储，简单够用
+# 📌 播客节目管理（替代博客）
 # ============================
 
 class PublishRequest(BaseModel):
@@ -112,77 +115,193 @@ class PublishRequest(BaseModel):
     content: str
     summary: str = ""
     tags: list[str] = []
-    audio_filename: str = ""  # TTS 生成的音频文件名
+    audio_filename: str = ""
 
 
-def load_posts() -> list[dict]:
-    """读取所有文章"""
-    posts = []
-    for fname in sorted(os.listdir(POSTS_DIR), reverse=True):
+def load_episodes() -> list[dict]:
+    eps = []
+    for fname in sorted(os.listdir(EPISODES_DIR), reverse=True):
         if fname.endswith(".json"):
-            with open(os.path.join(POSTS_DIR, fname), "r", encoding="utf-8") as f:
-                posts.append(json.load(f))
-    return posts
+            with open(os.path.join(EPISODES_DIR, fname), "r", encoding="utf-8") as f:
+                eps.append(json.load(f))
+    return eps
 
 
-# POST /publish - 发布文章
 @app.post("/publish")
-async def publish_post(req: PublishRequest):
-    post_id = uuid.uuid4().hex[:8]
-    now = datetime.now().isoformat()
+async def publish_episode(req: PublishRequest):
+    ep_id = uuid.uuid4().hex[:8]
+    now = datetime.now(timezone.utc).isoformat()
 
-    post = {
-        "id": post_id,
+    # 获取音频文件大小
+    file_size = 0
+    if req.audio_filename:
+        filepath = os.path.join(AUDIO_DIR, req.audio_filename)
+        if os.path.exists(filepath):
+            file_size = os.path.getsize(filepath)
+
+    episode = {
+        "id": ep_id,
         "title": req.title,
         "content": req.content,
         "summary": req.summary,
         "tags": req.tags,
         "audio_filename": req.audio_filename,
         "audio_url": f"/audio/{req.audio_filename}" if req.audio_filename else "",
+        "file_size": file_size,
         "created_at": now,
         "status": "published",
     }
 
-    # 保存为 JSON 文件
-    filepath = os.path.join(POSTS_DIR, f"{now[:10]}_{post_id}.json")
+    filepath = os.path.join(EPISODES_DIR, f"{now[:10]}_{ep_id}.json")
     with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(post, f, ensure_ascii=False, indent=2)
+        json.dump(episode, f, ensure_ascii=False, indent=2)
 
-    return {"message": "发布成功！", "post": post}
+    return {"message": "发布成功！", "post": episode}
 
 
-# GET /posts - 获取所有文章
 @app.get("/posts")
-async def get_posts():
-    return load_posts()
+async def get_episodes():
+    return load_episodes()
 
 
-# GET /posts/{post_id} - 获取单篇文章
-@app.get("/posts/{post_id}")
-async def get_post(post_id: str):
-    for post in load_posts():
-        if post["id"] == post_id:
-            return post
-    return {"error": "文章不存在"}
+@app.get("/posts/{ep_id}")
+async def get_episode(ep_id: str):
+    for ep in load_episodes():
+        if ep["id"] == ep_id:
+            return ep
+    return {"error": "节目不存在"}
 
 
-# DELETE /posts/{post_id} - 删除文章
-@app.delete("/posts/{post_id}")
-async def delete_post(post_id: str):
-    for fname in os.listdir(POSTS_DIR):
+@app.delete("/posts/{ep_id}")
+async def delete_episode(ep_id: str):
+    for fname in os.listdir(EPISODES_DIR):
         if fname.endswith(".json"):
-            filepath = os.path.join(POSTS_DIR, fname)
+            filepath = os.path.join(EPISODES_DIR, fname)
             with open(filepath, "r", encoding="utf-8") as f:
-                post = json.load(f)
-            if post["id"] == post_id:
+                ep = json.load(f)
+            if ep["id"] == ep_id:
                 os.remove(filepath)
                 return {"message": "删除成功"}
-    return {"error": "文章不存在"}
+    return {"error": "节目不存在"}
 
 
 # ============================
-# 健康检查
+# 📌 RSS Feed 生成
+# Spotify 通过这个 RSS 拉取你的播客
 # ============================
+
+@app.get("/rss")
+async def rss_feed():
+    base = PODCAST_CONFIG["base_url"]
+    episodes = load_episodes()
+
+    # 构建 RSS XML
+    rss = Element("rss")
+    rss.set("version", "2.0")
+    rss.set("xmlns:itunes", "http://www.itunes.com/dtds/podcast-1.0.dtd")
+    rss.set("xmlns:content", "http://purl.org/rss/1.0/modules/content/")
+
+    channel = SubElement(rss, "channel")
+
+    # 播客基本信息
+    SubElement(channel, "title").text = PODCAST_CONFIG["title"]
+    SubElement(channel, "description").text = PODCAST_CONFIG["description"]
+    SubElement(channel, "language").text = PODCAST_CONFIG["language"]
+    SubElement(channel, "link").text = base
+
+    # iTunes 专用标签（Spotify 也用这些）
+    SubElement(channel, "itunes:author").text = PODCAST_CONFIG["author"]
+    SubElement(channel, "itunes:summary").text = PODCAST_CONFIG["description"]
+    SubElement(channel, "itunes:explicit").text = "false"
+
+    owner = SubElement(channel, "itunes:owner")
+    SubElement(owner, "itunes:name").text = PODCAST_CONFIG["author"]
+    SubElement(owner, "itunes:email").text = PODCAST_CONFIG["email"]
+
+    if PODCAST_CONFIG["image_url"]:
+        img = SubElement(channel, "itunes:image")
+        img.set("href", PODCAST_CONFIG["image_url"])
+
+    cat = SubElement(channel, "itunes:category")
+    cat.set("text", "Technology")
+
+    # 添加每个节目
+    for ep in episodes:
+        if not ep.get("audio_filename"):
+            continue
+
+        item = SubElement(channel, "item")
+        SubElement(item, "title").text = ep["title"]
+        SubElement(item, "description").text = ep.get("summary", "")
+
+        # content:encoded 放完整内容
+        encoded = SubElement(item, "content:encoded")
+        encoded.text = ep.get("content", "")
+
+        SubElement(item, "pubDate").text = format_rfc822(ep["created_at"])
+        SubElement(item, "guid").text = ep["id"]
+
+        # 音频附件 - Spotify 需要这个
+        enclosure = SubElement(item, "enclosure")
+        enclosure.set("url", f"{base}/audio/{ep['audio_filename']}")
+        enclosure.set("length", str(ep.get("file_size", 0)))
+        enclosure.set("type", "audio/mpeg")
+
+        SubElement(item, "itunes:summary").text = ep.get("summary", "")
+        SubElement(item, "itunes:explicit").text = "false"
+
+        # 标签作为关键词
+        if ep.get("tags"):
+            SubElement(item, "itunes:keywords").text = ",".join(ep["tags"])
+
+    # 格式化 XML
+    xml_str = tostring(rss, encoding="unicode")
+    pretty = parseString(xml_str).toprettyxml(indent="  ")
+    # 去掉多余的 xml declaration
+    lines = pretty.split("\n")[1:]
+    xml_out = '<?xml version="1.0" encoding="UTF-8"?>\n' + "\n".join(lines)
+
+    return Response(content=xml_out, media_type="application/rss+xml; charset=utf-8")
+
+
+def format_rfc822(iso_date: str) -> str:
+    """把 ISO 日期转成 RFC 822 格式（RSS 需要的）"""
+    try:
+        dt = datetime.fromisoformat(iso_date.replace("Z", "+00:00"))
+        return dt.strftime("%a, %d %b %Y %H:%M:%S +0000")
+    except Exception:
+        return datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")
+
+
+# ============================
+# 播客配置接口（前端可以修改配置）
+# ============================
+
+class PodcastConfigUpdate(BaseModel):
+    title: str = ""
+    description: str = ""
+    author: str = ""
+    email: str = ""
+    image_url: str = ""
+    base_url: str = ""
+
+
+@app.get("/config")
+async def get_config():
+    return PODCAST_CONFIG
+
+
+@app.post("/config")
+async def update_config(req: PodcastConfigUpdate):
+    if req.title: PODCAST_CONFIG["title"] = req.title
+    if req.description: PODCAST_CONFIG["description"] = req.description
+    if req.author: PODCAST_CONFIG["author"] = req.author
+    if req.email: PODCAST_CONFIG["email"] = req.email
+    if req.image_url: PODCAST_CONFIG["image_url"] = req.image_url
+    if req.base_url: PODCAST_CONFIG["base_url"] = req.base_url
+    return {"message": "配置已更新", "config": PODCAST_CONFIG}
+
+
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "BlogAuto Backend"}
+    return {"status": "ok", "service": "BlogAuto Podcast Backend"}
