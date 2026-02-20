@@ -40,12 +40,11 @@ PODCAST_CONFIG = {
     "title": "BlogAuto Podcast",
     "description": "AI 自动生成的博客播客，输入文字自动整理、生成语音、发布节目。",
     "author": "BlogAuto",
-    "email": "your@email.com",
+    "email": "lu.fu@northeastern.edu",
     "language": "zh-cn",
-    "image_url": "",  # 播客封面图 URL（1400x1400 以上）
-    "base_url": "http://localhost:8000",  # 部署后改成真实域名
+    "image_url": "",
+    "base_url": "https://auto-blog-espm.onrender.com",
 }
-
 
 # ============================
 # TTS 相关
