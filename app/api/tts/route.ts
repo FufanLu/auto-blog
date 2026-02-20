@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-const TTS_SERVER = "http://localhost:8000";
+const TTS_SERVER = process.env.TTS_BACKEND_URL || "http://localhost:8000";
 
 // POST /api/tts - 文本转语音
 export async function POST(request: NextRequest) {

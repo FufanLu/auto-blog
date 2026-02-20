@@ -94,7 +94,7 @@ export default function MainLayout() {
       // ====== 步骤2：用整理后的文本生成语音 ======
       let audioFilename = "";
       try {
-        const ttsRes = await fetch("http://localhost:8000/tts/save", {
+        const ttsRes = await fetch("/api/tts-save", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: polishedContent, voice: "xiaoxiao", rate: "+0%" }),

@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND = "http://localhost:8000";
+const BACKEND = process.env.TTS_BACKEND_URL || "http://localhost:8000";
 
 // POST /api/publish - 发布文章
 export async function POST(request: NextRequest) {
