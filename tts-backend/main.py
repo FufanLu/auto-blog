@@ -39,10 +39,10 @@ app.mount("/audio", StaticFiles(directory=AUDIO_DIR), name="audio")
 PODCAST_CONFIG = {
     "title": "BlogAuto Podcast",
     "description": "AI 自动生成的博客播客，输入文字自动整理、生成语音、发布节目。",
-    "author": "BlogAuto",
+    "author": "Fufan Lu",
     "email": "lu.fu@northeastern.edu",
     "language": "zh-cn",
-    "image_url": "",
+    "image_url": "https://placehold.co/1400x1400/1a1a2e/ffffff?text=BlogAuto+Podcast",
     "base_url": "https://auto-blog-espm.onrender.com",
 }
 
