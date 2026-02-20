@@ -1,36 +1,99 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚀 BlogAuto - 一键博客发布工具
 
-## Getting Started
+输入任何文字（多乱都行），AI 自动整理成博客文章 + 生成语音 + 一键发布。
 
-First, run the development server:
+## 功能
+
+- 🤖 **AI 意图识别**：自动识别你想表达什么
+- ✍️ **AI 文本整理**：把杂乱的文字整理成通顺的博客文章
+- 🔊 **语音合成**：自动生成文章的语音版本（免费，使用 Edge-TTS）
+- 📝 **一键发布**：自动发布到内置博客，可浏览、播放音频
+- 📖 **博客页面**：查看所有已发布文章
+
+## 技术栈
+
+- **前端 + API**：Next.js 16 (TypeScript + Tailwind CSS)
+- **TTS 后端**：Python FastAPI + Edge-TTS
+- **AI**：OpenAI 兼容 API（GeekAI）
+
+## 快速启动
+
+### 1. 克隆项目
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/你的用户名/blog-auto.git
+cd blog-auto
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. 安装前端依赖
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm install
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 3. 配置环境变量
 
-## Learn More
+在项目根目录创建 `.env.local`：
 
-To learn more about Next.js, take a look at the following resources:
+```
+API_KEY=你的API密钥
+BASE_URL=https://geekai.dev/api/v1
+MODEL_NAME=gpt-4o-mini
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 4. 安装 Python 依赖
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+cd tts-backend
+pip install fastapi uvicorn edge-tts
+```
 
-## Deploy on Vercel
+### 5. 启动服务（需要两个终端）
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+**终端 1 - Next.js 前端：**
+```bash
+cd blog-auto
+npm run dev
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**终端 2 - Python TTS 后端：**
+```bash
+cd blog-auto/tts-backend
+uvicorn main:app --reload --port 8000
+```
+
+### 6. 打开浏览器
+
+- 主页面（编辑器）：http://localhost:3000
+- 博客页面：http://localhost:3000/blog
+- TTS 服务：http://localhost:8000
+
+## 使用方法
+
+1. 打开 http://localhost:3000
+2. 输入任何文字（或点击示例按钮）
+3. 点击「🚀 一键发布」
+4. 等待 AI 分析 → 生成语音 → 发布完成
+5. 点击「查看文章」或去 /blog 浏览
+
+## 项目结构
+
+```
+blog-auto/
+├── app/
+│   ├── page.tsx              # 主页面
+│   ├── api/
+│   │   ├── analyze/route.ts  # AI 分析 API
+│   │   ├── tts/route.ts      # TTS 转发 API
+│   │   └── publish/route.ts  # 发布 API
+│   └── blog/
+│       ├── page.tsx           # 博客列表页
+│       └── [id]/page.tsx      # 文章详情页
+├── components/
+│   ├── MainLayout.tsx         # 主布局组件
+│   ├── TextInput.tsx          # 文本输入组件
+│   └── AnalysisResult.tsx     # 分析结果组件
+├── tts-backend/
+│   └── main.py                # Python TTS 服务
+└── .env.local                 # 环境变量（不上传）
+```
