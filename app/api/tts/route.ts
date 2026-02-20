@@ -45,8 +45,27 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET /api/tts/voices - 获取语音列表
-export async function GET() {
+// GET /api/tts - 获取语音列表 或 转发音频文件
+export async function GET(request: NextRequest) {
+  const file = request.nextUrl.searchParams.get("file");
+
+  // 如果有 file 参数，转发音频文件
+  if (file) {
+    try {
+      const res = await fetch(`${TTS_SERVER}/audio/${file}`);
+      if (!res.ok) {
+        return NextResponse.json({ error: "音频不存在" }, { status: 404 });
+      }
+      const audioBuffer = await res.arrayBuffer();
+      return new NextResponse(audioBuffer, {
+        headers: { "Content-Type": "audio/mpeg" },
+      });
+    } catch {
+      return NextResponse.json({ error: "无法获取音频" }, { status: 500 });
+    }
+  }
+
+  // 否则返回语音列表
   try {
     const res = await fetch(`${TTS_SERVER}/voices`);
     const voices = await res.json();
