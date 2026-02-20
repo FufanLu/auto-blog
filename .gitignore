@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+tts-backend/audio_files/
+tts-backend/posts/
+tts-backend/__pycache__/
