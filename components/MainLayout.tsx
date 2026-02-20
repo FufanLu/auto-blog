@@ -132,7 +132,7 @@ export default function MainLayout() {
         summary,
         tags,
         postId: publishData.post.id,
-        audioUrl: audioFilename ? `http://localhost:8000/audio/${audioFilename}` : "",
+        audioUrl: audioFilename ? `/api/tts?file=${audioFilename}` : "",
         polishedContent,
         changesMade,
         originalText,
