@@ -165,8 +165,8 @@ export default function MainLayout() {
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
       <div className="mb-8 text-center">
-        <h2 className="text-3xl font-bold">一键发布博客</h2>
-        <p className="mt-2 text-gray-400">输入任何文字，AI 自动整理、生成语音、发布文章</p>
+        <h2 className="text-3xl font-bold">一键发布播客</h2>
+        <p className="mt-2 text-gray-400">输入任何文字，AI 自动整理、生成语音、发布到播客 RSS</p>
       </div>
 
       {/* 示例 prompt */}
@@ -204,7 +204,7 @@ export default function MainLayout() {
         disabled={running || !text.trim()}
         className="mt-4 w-full rounded-xl bg-gradient-to-r from-blue-600 via-purple-600 to-green-600 px-6 py-4 text-lg font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {running ? "处理中..." : "🚀 一键发布"}
+        {running ? "处理中..." : "🚀 一键发布播客"}
       </button>
 
       {/* 处理进度 */}
@@ -292,27 +292,34 @@ export default function MainLayout() {
 
           {/* 操作按钮 */}
           <div className="flex gap-3">
-            <Link
-              href={`/blog/${result.postId}`}
-              className="flex-1 rounded-lg bg-purple-600 px-4 py-3 text-center font-medium text-white transition hover:bg-purple-500"
+            <a
+              href="http://localhost:8000/rss"
+              target="_blank"
+              className="flex-1 rounded-lg bg-orange-600 px-4 py-3 text-center font-medium text-white transition hover:bg-orange-500"
             >
-              📖 查看文章
-            </Link>
+              📡 查看 RSS Feed
+            </a>
             <button
               onClick={() => { setResult(null); setText(""); setError(""); }}
               className="flex-1 rounded-lg border border-gray-600 px-4 py-3 font-medium text-gray-400 transition hover:border-gray-500 hover:text-gray-300"
             >
-              ✏️ 写新文章
+              ✏️ 发布新节目
             </button>
           </div>
         </div>
       )}
 
       {/* 底部链接 */}
-      <div className="mt-8 text-center">
-        <Link href="/blog" className="text-gray-500 transition hover:text-blue-400">
-          📋 查看所有已发布文章
-        </Link>
+      <div className="mt-8 flex justify-center gap-6 text-sm">
+        <a href="http://localhost:8000/rss" target="_blank" className="text-gray-500 transition hover:text-orange-400">
+          📡 RSS Feed
+        </a>
+        <a href="http://localhost:8000/posts" target="_blank" className="text-gray-500 transition hover:text-blue-400">
+          📋 所有节目
+        </a>
+        <a href="https://podcasters.spotify.com" target="_blank" className="text-gray-500 transition hover:text-green-400">
+          🎧 Spotify for Podcasters
+        </a>
       </div>
     </div>
   );
